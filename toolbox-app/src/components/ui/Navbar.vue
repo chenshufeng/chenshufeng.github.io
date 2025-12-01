@@ -23,11 +23,8 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 
-const router = useRouter()
 const searchQuery = ref('')
-
 const toggleTheme = () => {}
 const goToUserCenter = () => {}
 </script>
