@@ -1,0 +1,16 @@
+html, body, #app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: $bg-primary;
+  color: $text-primary;
+  font-family: $font-family;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}

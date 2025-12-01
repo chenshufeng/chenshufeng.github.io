@@ -1,0 +1,23 @@
+[
+  {
+    "id": "img-compress",
+    "name": "图片压缩",
+    "description": "快速压缩图片体积，保持清晰度",
+    "icon": "/vite.svg",
+    "popularity": 95
+  },
+  {
+    "id": "text-format",
+    "name": "文本格式化",
+    "description": "美化 JSON、XML、SQL 等文本",
+    "icon": "/vite.svg",
+    "popularity": 88
+  },
+  {
+    "id": "uuid-gen",
+    "name": "UUID 生成",
+    "description": "生成唯一标识符",
+    "icon": "/vite.svg",
+    "popularity": 72
+  }
+]
