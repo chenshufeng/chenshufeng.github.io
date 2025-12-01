@@ -8,6 +8,9 @@ export const useToolsStore = defineStore('tools', () => {
   const error = ref<string | null>(null)
   const favorites = ref<string[]>([])
   const history = ref<string[]>([])
+  const pageNum = ref(1)
+  const pageSize = ref(12)
+  const total = ref(0)
 
   const fetchTools = async () => {
     loading.value = true
@@ -17,7 +20,22 @@ export const useToolsStore = defineStore('tools', () => {
       tools.value = response.data
     } catch (e) {
       error.value = 'Failed to fetch tools. Please try again.'
-      // no console
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const fetchToolsPage = async (page?: number) => {
+    loading.value = true
+    error.value = null
+    if (typeof page === 'number') pageNum.value = page
+    try {
+      const res = await api.getToolsPaged({ pageNum: pageNum.value, pageSize: pageSize.value })
+      const d = res.data
+      tools.value = Array.isArray(d?.list) ? d.list : []
+      total.value = Number(d?.total ?? tools.value.length)
+    } catch (e) {
+      error.value = 'Failed to fetch tools. Please try again.'
     } finally {
       loading.value = false
     }
@@ -57,7 +75,11 @@ export const useToolsStore = defineStore('tools', () => {
     error,
     favorites,
     history,
+    pageNum,
+    pageSize,
+    total,
     fetchTools,
+    fetchToolsPage,
     toggleFavorite,
     addToHistory,
     favoriteTools,

@@ -26,6 +26,11 @@
         <div v-else class="tools-grid">
           <ToolCard v-for="tool in filteredTools" :key="tool.id" :tool="tool" />
         </div>
+        <div class="pagination" v-if="pageCount > 1">
+          <button class="btn" :disabled="pageNum === 1" @click="goPrev">上一页</button>
+          <span class="page-info">{{ pageNum }} / {{ pageCount }}</span>
+          <button class="btn" :disabled="pageNum === pageCount" @click="goNext">下一页</button>
+        </div>
       </div>
     </section>
     <Footer />
@@ -41,31 +46,45 @@ import Footer from '@/components/ui/Footer.vue'
 import ToolCard from '@/components/ui/ToolCard.vue'
 
 const toolsStore = useToolsStore()
-const { tools, loading, error } = storeToRefs(toolsStore)
+const { tools, loading, error, pageNum, pageSize, total } = storeToRefs(toolsStore)
 const searchQuery = ref('')
 const sortKey = ref<'name' | 'popularity'>('name')
 
 onMounted(() => {
-  toolsStore.fetchTools()
+  toolsStore.fetchToolsPage(1)
 })
 
-const fetchTools = () => toolsStore.fetchTools()
+const fetchTools = () => toolsStore.fetchToolsPage(pageNum.value)
 
 const filteredTools = computed(() => {
   return tools.value
     .filter((tool: any) =>
       String(tool.name).toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      String(tool.description).toLowerCase().includes(searchQuery.value.toLowerCase())
+      String((tool.description ?? '')).toLowerCase().includes(searchQuery.value.toLowerCase())
     )
     .sort((a: any, b: any) => {
       if (sortKey.value === 'name') return String(a.name).localeCompare(String(b.name))
-      if (sortKey.value === 'popularity') return Number(b.popularity) - Number(a.popularity)
+      if (sortKey.value === 'popularity') return Number(b.popularity || 0) - Number(a.popularity || 0)
       return 0
     })
 })
 
 const sortBy = (key: 'name' | 'popularity') => {
   sortKey.value = key
+}
+
+const pageCount = computed(() => {
+  const t = Number(total.value || 0)
+  const size = Number(pageSize.value || 1)
+  return Math.max(1, Math.ceil(t / size))
+})
+
+const goPrev = () => {
+  if (pageNum.value > 1) toolsStore.fetchToolsPage(pageNum.value - 1)
+}
+
+const goNext = () => {
+  if (pageNum.value < pageCount.value) toolsStore.fetchToolsPage(pageNum.value + 1)
 }
 </script>
 
@@ -125,6 +144,15 @@ const sortBy = (key: 'name' | 'popularity') => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 24px;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+.pagination .page-info {
+  color: $text-secondary;
 }
 .skeleton-grid {
   display: grid;
