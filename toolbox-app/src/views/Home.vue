@@ -39,7 +39,6 @@
         </div>
       </div>
     </section>
-<!--    <Footer />-->
   </main>
 </template>
 
@@ -48,7 +47,6 @@ import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useToolsStore } from '@/stores/tools'
 import Navbar from '@/components/ui/Navbar.vue'
-import Footer from '@/components/ui/Footer.vue'
 import ToolCard from '@/components/ui/ToolCard.vue'
 
 const toolsStore = useToolsStore()
