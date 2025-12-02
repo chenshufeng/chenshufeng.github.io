@@ -149,6 +149,7 @@
 import { ref, computed, watch } from 'vue'
 import JSZip from 'jszip'
 import type { UploadFile } from 'element-plus'
+import UPNG from '@pdf-lib/upng'
 const activeTab = ref<'image' | 'folder'>('image')
 const originalFile = ref<File | null>(null)
 const originalUrl = ref<string>('')
@@ -214,14 +215,26 @@ const computeDetailStats = async (it: { file: File; name: string; url: string })
   const supportedCanvasFmt = /^(image\/(jpeg|png|webp))$/i
   const mime = supportedCanvasFmt.test(chosenFmt) ? chosenFmt : 'image/jpeg'
   const fmtLabelMap: Record<string, string> = { 'image/jpeg': 'JPEG', 'image/png': 'PNG', 'image/webp': 'WEBP' }
-  const canvas = document.createElement('canvas')
-  canvas.width = dims.w
-  canvas.height = dims.h
-  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
-  ctx.drawImage(img, 0, 0, dims.w, dims.h)
-  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(b => resolve(b), mime, quality.value))
   let estSize = 0
-  if (blob) estSize = blob.size
+  if (mime === 'image/png') {
+    const canvas = document.createElement('canvas')
+    canvas.width = dims.w
+    canvas.height = dims.h
+    const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
+    ctx.drawImage(img, 0, 0, dims.w, dims.h)
+    const rgba = ctx.getImageData(0, 0, dims.w, dims.h).data
+    const cnum = Math.max(2, Math.min(256, Math.round(256 * quality.value)))
+    const ab = UPNG.encode([rgba.buffer], dims.w, dims.h, cnum)
+    estSize = (ab as ArrayBuffer).byteLength
+  } else {
+    const canvas = document.createElement('canvas')
+    canvas.width = dims.w
+    canvas.height = dims.h
+    const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
+    ctx.drawImage(img, 0, 0, dims.w, dims.h)
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(b => resolve(b), mime, quality.value))
+    if (blob) estSize = blob.size
+  }
   const origSize = it.file.size
   const rate = origSize ? (100 - (estSize / origSize) * 100) : 0
   detailStats.value = {
@@ -418,7 +431,7 @@ const pickOutputDirectory = async () => {
 const compressFile = async (file: File, mime: string) => {
   try {
     const workerSupported = typeof Worker !== 'undefined'
-    if (workerSupported) {
+    if (workerSupported && mime !== 'image/png') {
       const origSize = file.size
       // 获取原图尺寸用于必要的回退
       let origW = 0, origH = 0
@@ -462,17 +475,33 @@ const compressFile = async (file: File, mime: string) => {
     } else {
       const img = await readImage(file)
       const dims = getTargetDims(img.naturalWidth, img.naturalHeight, maxWidth.value, maxHeight.value)
-      const canvas = document.createElement('canvas')
-      canvas.width = dims.w
-      canvas.height = dims.h
-      const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
-      ctx.drawImage(img, 0, 0, dims.w, dims.h)
-      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(b => resolve(b), mime, quality.value))
-      if (!blob) throw new Error('生成图片失败')
-      if (blob.size >= file.size) {
-        return { blob: file, width: img.naturalWidth, height: img.naturalHeight, size: file.size }
+      if (mime === 'image/png') {
+        const canvas = document.createElement('canvas')
+        canvas.width = dims.w
+        canvas.height = dims.h
+        const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
+        ctx.drawImage(img, 0, 0, dims.w, dims.h)
+        const rgba = ctx.getImageData(0, 0, dims.w, dims.h).data
+        const cnum = Math.max(2, Math.min(256, Math.round(256 * quality.value)))
+        const ab = UPNG.encode([rgba.buffer], dims.w, dims.h, cnum)
+        const outBlob = new Blob([ab as ArrayBuffer], { type: 'image/png' })
+        if (outBlob.size >= file.size) {
+          return { blob: file, width: img.naturalWidth, height: img.naturalHeight, size: file.size }
+        }
+        return { blob: outBlob, width: dims.w, height: dims.h, size: outBlob.size }
+      } else {
+        const canvas = document.createElement('canvas')
+        canvas.width = dims.w
+        canvas.height = dims.h
+        const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
+        ctx.drawImage(img, 0, 0, dims.w, dims.h)
+        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(b => resolve(b), mime, quality.value))
+        if (!blob) throw new Error('生成图片失败')
+        if (blob.size >= file.size) {
+          return { blob: file, width: img.naturalWidth, height: img.naturalHeight, size: file.size }
+        }
+        return { blob, width: dims.w, height: dims.h, size: blob.size }
       }
-      return { blob, width: dims.w, height: dims.h, size: blob.size }
     }
   } catch (err: any) {
     throw err

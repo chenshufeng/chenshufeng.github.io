@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@pdf-lib/upng": "^1.0.1",
     "axios": "^1.13.2",
     "element-plus": "^2.8.6",
     "jszip": "^3.10.1",
