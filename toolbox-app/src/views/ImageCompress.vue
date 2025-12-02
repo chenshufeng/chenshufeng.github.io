@@ -372,6 +372,8 @@ const zipPercent = ref(0)
 const zipName = ref('archive.zip')
 const zipSourceDirHandle = ref<any>(null)
 const dropActive = ref(false)
+const zipOptimizeImages = ref(true)
+const zipImageQuality = ref(0.8)
 
 // Folder zip helpers
 const pickZipDirectory = async () => {
@@ -474,8 +476,13 @@ const startZip = async () => {
   try {
     for (const item of zipFileList.value) {
       try {
-        const buf = await item.file.arrayBuffer()
-        zip.value!.file(item.path, buf)
+        if (zipOptimizeImages.value && /^(image\/(jpeg|png|webp))$/i.test(item.file.type)) {
+          const blob = await compressImageForZip(item.file)
+          zip.value!.file(item.path, blob, { compression: 'DEFLATE', compressionOptions: { level: zipLevel.value } })
+        } else {
+          const buf = await item.file.arrayBuffer()
+          zip.value!.file(item.path, buf, { binary: true, compression: 'DEFLATE', compressionOptions: { level: zipLevel.value } })
+        }
         zipAdded.value += 1
       } catch (e: any) {
         zipFailed.value += 1
@@ -523,6 +530,20 @@ const saveZipToOutput = async () => {
     a.download = zipName.value
     a.click()
   }
+}
+
+const compressImageForZip = async (file: File) => {
+  const mime = file.type
+  const img = await readImage(file)
+  const dims = getTargetDims(img.naturalWidth, img.naturalHeight, null, null)
+  const canvas = document.createElement('canvas')
+  canvas.width = dims.w
+  canvas.height = dims.h
+  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
+  ctx.drawImage(img, 0, 0, dims.w, dims.h)
+  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(b => resolve(b), mime, mime === 'image/png' ? undefined : zipImageQuality.value))
+  if (!blob) throw new Error('生成图片失败')
+  return blob
 }
 </script>
 
