@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
+const TOOL_SOURCE = (import.meta as any).env?.VITE_TOOL_SOURCE || 'json'
 const trimSlash = (s: string) => s.replace(/\/$/, '')
 const withBase = (path: string) => (API_BASE ? `${trimSlash(API_BASE)}${path}` : path)
 
@@ -10,6 +11,9 @@ api.interceptors.request.use(config => config, error => Promise.reject(error))
 api.interceptors.response.use(response => response, error => Promise.reject(error))
 
 const getTools = async () => {
+  if (TOOL_SOURCE === 'json') {
+    return axios.get('/tools.json')
+  }
   try {
     return await api.get('/tools')
   } catch {
@@ -18,6 +22,11 @@ const getTools = async () => {
 }
 
 const getToolById = async (id: string) => {
+  if (TOOL_SOURCE === 'json') {
+    const res = await axios.get('/tools.json')
+    const found = Array.isArray(res.data) ? res.data.find((t: any) => String(t.id) === String(id)) : null
+    return { data: found }
+  }
   try {
     const res = await axios.get(withBase(`/websit/tools/${id}`))
     const d = res.data
@@ -39,6 +48,14 @@ const getToolById = async (id: string) => {
 }
 
 const getToolsPaged = async (params: { pageNum: number; pageSize: number; keyword?: string }) => {
+  if (TOOL_SOURCE === 'json') {
+    const fallback = await axios.get('/tools.json')
+    const all = Array.isArray(fallback.data) ? fallback.data : []
+    const start = (params.pageNum - 1) * params.pageSize
+    const end = start + params.pageSize
+    const list = all.slice(start, end)
+    return { data: { list, total: all.length } }
+  }
   try {
     const res = await axios.get(withBase('/websit/tools/pcList'), { params })
     const d = res.data
@@ -58,7 +75,8 @@ const getToolsPaged = async (params: { pageNum: number; pageSize: number; keywor
       name: r.toolName ?? r.name,
       description: r.toolDesc ?? r.description ?? '',
       icon: r.icon ?? r.logo ?? '/vite.svg',
-      popularity: Number(r.popularity ?? r.hot ?? 0)
+      popularity: Number(r.popularity ?? r.hot ?? 0),
+      url: r.toolUrl ?? r.url ?? ''
     }))
     const total = Number(d?.total ?? d?.data?.total ?? rows.length)
     return { data: { list, total } }
