@@ -419,6 +419,14 @@ const compressFile = async (file: File, mime: string) => {
   try {
     const workerSupported = typeof Worker !== 'undefined'
     if (workerSupported) {
+      const origSize = file.size
+      // 获取原图尺寸用于必要的回退
+      let origW = 0, origH = 0
+      try {
+        const baseImg = await readImage(file)
+        origW = baseImg.naturalWidth
+        origH = baseImg.naturalHeight
+      } catch {}
       const res = await new Promise<{ blob: Blob; width: number; height: number; size: number }>((resolve, reject) => {
         const worker = new Worker(new URL('@/workers/imageCompressWorker.ts', import.meta.url), { type: 'module' })
         const reader = new FileReader()
@@ -433,7 +441,12 @@ const compressFile = async (file: File, mime: string) => {
           if (msg.type === 'done') {
             const buf: ArrayBuffer = msg.payload.buffer
             const blob = new Blob([buf], { type: mime })
-            resolve({ blob, width: msg.payload.width, height: msg.payload.height, size: msg.payload.newSize })
+            const newSize = msg.payload.newSize || blob.size
+            if (newSize >= origSize) {
+              resolve({ blob: file, width: origW || msg.payload.width, height: origH || msg.payload.height, size: origSize })
+            } else {
+              resolve({ blob, width: msg.payload.width, height: msg.payload.height, size: newSize })
+            }
             worker.terminate()
           } else if (msg.type === 'error') {
             reject(new Error(msg.error || '压缩失败'))
@@ -456,6 +469,9 @@ const compressFile = async (file: File, mime: string) => {
       ctx.drawImage(img, 0, 0, dims.w, dims.h)
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(b => resolve(b), mime, quality.value))
       if (!blob) throw new Error('生成图片失败')
+      if (blob.size >= file.size) {
+        return { blob: file, width: img.naturalWidth, height: img.naturalHeight, size: file.size }
+      }
       return { blob, width: dims.w, height: dims.h, size: blob.size }
     }
   } catch (err: any) {
