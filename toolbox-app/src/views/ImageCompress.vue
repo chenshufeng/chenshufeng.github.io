@@ -206,6 +206,7 @@ const openDetail = async (index: number) => {
   }
 }
 
+
 const computeDetailStats = async (it: { file: File; name: string; url: string }) => {
   const img = await readImage(it.file)
   const dims = getTargetDims(img.naturalWidth, img.naturalHeight, maxWidth.value, maxHeight.value)
@@ -232,7 +233,7 @@ const computeDetailStats = async (it: { file: File; name: string; url: string })
     targetH: dims.h,
     estSize,
     estRate: `${rate.toFixed(1)}%`,
-    fmtLabel: targetFormat.value === 'auto' ? '自动' : (fmtLabelMap[mime] || '自动')
+    fmtLabel: fmtLabelMap[mime] || '—'
   }
 }
 
@@ -308,11 +309,10 @@ const saveImagesDefaultBatch = async () => {
   }
 }
 
-const deriveFileName = (orig: string, mime: string) => {
-  const extMap: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
+const deriveFileName = (orig: string, _mime: string) => {
   const base = orig.replace(/\.[^.]+$/, '')
-  const ext = extMap[mime] || 'jpg'
-  return `${base}-compressed.${ext}`
+  const ext = orig.split('.').pop() || 'jpg'
+  return `${base}.${ext}`
 }
 
 const removeImageAt = (index: number) => {
@@ -330,6 +330,17 @@ const removeImageAt = (index: number) => {
     imageDone.value = 0
     imageFailed.value = 0
     imageRunning.value = false
+    try {
+      if (originalUrl.value) URL.revokeObjectURL(originalUrl.value)
+    } catch {}
+    originalFile.value = null
+    originalUrl.value = ''
+    originalSize.value = 0
+    originalWidth.value = 0
+    originalHeight.value = 0
+    compressedBlob.value = null
+    compressedUrl.value = ''
+    compressedSize.value = 0
   }
 }
 
@@ -344,6 +355,17 @@ const clearAllImages = () => {
   imageDone.value = 0
   imageFailed.value = 0
   imageRunning.value = false
+  try {
+    if (originalUrl.value) URL.revokeObjectURL(originalUrl.value)
+  } catch {}
+  originalFile.value = null
+  originalUrl.value = ''
+  originalSize.value = 0
+  originalWidth.value = 0
+  originalHeight.value = 0
+  compressedBlob.value = null
+  compressedUrl.value = ''
+  compressedSize.value = 0
 }
 
 const setOriginalFile = async (file: File) => {
@@ -474,12 +496,10 @@ const compressionRate = computed(() => {
 })
 
 watch([() => originalFile.value, () => targetFormat.value], () => {
-  const extMap: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
-  const orig = originalFile.value?.name || 'image'
+  const orig = originalFile.value?.name || 'image.jpg'
   const base = orig.replace(/\.[^.]+$/, '')
-  const fmt = targetFormat.value === 'auto' ? (originalFile.value?.type || 'image/jpeg') : targetFormat.value
-  const ext = extMap[fmt] || 'jpg'
-  filename.value = `${base}-compressed.${ext}`
+  const ext = orig.split('.').pop() || 'jpg'
+  filename.value = `${base}.${ext}`
 })
 
 
