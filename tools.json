@@ -1,0 +1,18 @@
+[
+  {
+    "id": "img-compress",
+    "name": "图片压缩",
+    "description": "快速压缩图片体积，保持清晰度",
+    "icon": "/vite.svg",
+    "popularity": 95,
+    "url": "/image-compress"
+  },
+  {
+    "id": "file-converter",
+    "name": "PDF与Word转换",
+    "description": "PDF与Word文件互相转换，支持doc、docx、pdf格式",
+    "icon": "/vite.svg",
+    "popularity": 90,
+    "url": "/file-converter"
+  }
+]
