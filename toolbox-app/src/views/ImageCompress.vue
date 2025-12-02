@@ -12,7 +12,8 @@
           drag
           accept="image/*"
           :auto-upload="false"
-          :limit="1"
+          multiple
+          :limit="100"
           :before-upload="handleBeforeUpload"
           @change="handleUploadChange"
         >
@@ -24,7 +25,7 @@
       </transition>
 
       
-      <div v-if="originalUrl" class="preview">
+      <div v-if="activeTab === 'image' && originalUrl && imageFiles.length === 0" class="preview">
         <div class="preview-item">
           <h3>原始</h3>
           <img :src="originalUrl" alt="原始图片" />
@@ -43,39 +44,58 @@
           </div>
         </div>
       </div>
-      <section v-if="activeTab === 'image' && originalUrl" class="surface controls" aria-label="压缩参数设置">
-        <div class="control">
-          <label>质量</label>
-          <input type="range" min="0.6" max="0.9" step="0.01" v-model.number="quality" />
-          <span>{{ Math.round(quality * 100) }}%</span>
+      
+      
+      <section v-if="activeTab === 'image' && imageFiles.length > 0" class="surface image-batch" aria-label="多图压缩">
+        <div class="batch-header">
+          <div class="header-title">
+            <el-icon><svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18h14v2H5z"/></svg></el-icon>
+            <div class="texts">
+              <h2 class="section-title">多图压缩</h2>
+              <p class="section-sub">已选择 {{ imageTotal }} 张图片</p>
+            </div>
+          </div>
+          <div class="header-actions">
+            <el-button type="primary" :disabled="imageRunning || imageFiles.length === 0" @click="startCompressAll">压缩全部</el-button>
+            <el-button :disabled="imageRunning || imageResults.length === 0" @click="downloadAllImages">批量下载</el-button>
+            <el-button type="success" :disabled="imageRunning || imageResults.length === 0" @click="saveImagesDefaultBatch">保存到输出文件夹</el-button>
+            <el-button type="danger" :disabled="imageRunning || imageFiles.length === 0" @click="clearAllImages">清空选择</el-button>
+          </div>
         </div>
-        <div class="control">
-          <label>最大宽度</label>
-          <input type="number" min="1" v-model.number="maxWidth" placeholder="不设保留原始" />
+        <el-progress v-if="imageTotal > 0" :percentage="imagePercent" :status="imagePercent === 100 ? 'success' : undefined" />
+        <div class="image-grid">
+          <div class="image-card" v-for="(it, i) in imageFiles" :key="i">
+            <el-button class="remove-btn" size="small" @click.stop="removeImageAt(i)" aria-label="移除图片">
+              <el-icon><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></el-icon>
+            </el-button>
+            <el-button class="detail-btn" size="small" @click.stop="openDetail(i)" aria-label="查看详情">
+              详情
+            </el-button>
+            <img :src="it.url" :alt="it.name" />
+            <div class="meta"><span>{{ it.name }}</span></div>
+          </div>
         </div>
-        <div class="control">
-          <label>最大高度</label>
-          <input type="number" min="1" v-model.number="maxHeight" placeholder="不设保留原始" />
-        </div>
-        <div class="control">
-          <label>格式</label>
-          <select v-model="targetFormat">
-            <option value="auto">自动</option>
-            <option value="image/jpeg">JPEG</option>
-            <option value="image/png">PNG</option>
-            <option value="image/webp">WEBP</option>
-          </select>
-        </div>
-        <div class="control">
-          <label>文件名</label>
-          <input type="text" v-model="filename" placeholder="下载文件名" />
-        </div>
+        <el-dialog v-model="detailVisible" width="640" :title="detailTitle" align-center center class="detail-dialog">
+          <div class="detail-content" v-if="detailLoading">计算中…</div>
+          <div class="detail-content" v-else>
+            <div class="detail-left" v-if="detailItem">
+              <img :src="detailItem.url" :alt="detailItem.name" class="detail-thumb" />
+            </div>
+            <div class="detail-right">
+              <div class="detail-row"><span>文件名</span><b>{{ detailStats.name }}</b></div>
+              <div class="detail-row"><span>原尺寸</span><b>{{ detailStats.width }} × {{ detailStats.height }}</b></div>
+              <div class="detail-row"><span>原大小</span><b>{{ formatBytes(detailStats.size) }}</b></div>
+              <div class="detail-row"><span>目标尺寸</span><b>{{ detailStats.targetW }} × {{ detailStats.targetH }}</b></div>
+              <div class="detail-row"><span>目标格式</span><b>{{ detailStats.fmtLabel }}</b></div>
+              <div class="detail-row"><span>预估大小</span><b>{{ formatBytes(detailStats.estSize) }}</b></div>
+              <div class="detail-row"><span>预估压缩率</span><b>{{ detailStats.estRate }}</b></div>
+            </div>
+          </div>
+          <template #footer>
+            <el-button @click="detailVisible = false">关闭</el-button>
+          </template>
+        </el-dialog>
       </section>
-      <div class="actions" v-if="activeTab === 'image' && originalUrl">
-        <el-button type="primary" size="large" :disabled="loading" @click="startCompress" aria-label="开始压缩">开始压缩</el-button>
-        <el-button size="large" :disabled="!compressedBlob" @click="saveImageDefault" aria-label="保存到源目录（自动）">保存（自动）</el-button>
-        <el-button size="large" :disabled="!compressedBlob" @click="download" aria-label="下载压缩图片">下载</el-button>
-      </div>
       <div class="progress" v-if="activeTab === 'image' && loading" role="progressbar" aria-valuemin="0" :aria-valuenow="progress" aria-valuemax="100">
         <div class="bar" :style="{ width: progress + '%' }"></div>
         <span class="progress-text">{{ progress }}%</span>
@@ -93,15 +113,7 @@
                 <p class="section-sub">选择或拖拽文件夹，保持原有目录结构打包</p>
               </div>
             </div>
-            <div class="header-actions">
-              <label class="concurrency-label">压缩等级</label>
-              <el-select v-model="zipLevel" size="small" class="concurrency-select">
-                <el-option :value="1" label="1" />
-                <el-option :value="3" label="3" />
-                <el-option :value="6" label="6" />
-                <el-option :value="9" label="9" />
-              </el-select>
-            </div>
+            
           </div>
           <div class="batch-controls">
             <el-button @click="pickZipDirectory">选择文件夹</el-button>
@@ -160,6 +172,70 @@ const error = ref<string | null>(null)
 
 const outputDirHandle = ref<any>(null)
 
+const imageFiles = ref<Array<{ file: File; name: string; url: string }>>([])
+const imageFileKeys = ref<Set<string>>(new Set())
+const imageResults = ref<Array<{ name: string; blob: Blob }>>([])
+const imageErrors = ref<Array<{ name: string; reason: string }>>([])
+const imageTotal = computed(() => imageFiles.value.length)
+const imageDone = ref(0)
+const imageFailed = ref(0)
+const imageRunning = ref(false)
+const imagePercent = computed(() => {
+  if (!imageTotal.value) return 0
+  return Math.min(100, Math.round((imageDone.value / imageTotal.value) * 100))
+})
+
+const detailVisible = ref(false)
+const detailLoading = ref(false)
+const detailItem = ref<{ file: File; name: string; url: string } | null>(null)
+const detailTitle = computed(() => detailItem.value ? `图片详情 - ${detailItem.value.name}` : '图片详情')
+const detailStats = ref<{ name: string; width: number; height: number; size: number; targetW: number; targetH: number; estSize: number; estRate: string; fmtLabel: string }>({
+  name: '', width: 0, height: 0, size: 0, targetW: 0, targetH: 0, estSize: 0, estRate: '—', fmtLabel: '自动'
+})
+
+const openDetail = async (index: number) => {
+  const it = imageFiles.value[index]
+  if (!it) return
+  detailItem.value = it
+  detailVisible.value = true
+  detailLoading.value = true
+  try {
+    await computeDetailStats(it)
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+const computeDetailStats = async (it: { file: File; name: string; url: string }) => {
+  const img = await readImage(it.file)
+  const dims = getTargetDims(img.naturalWidth, img.naturalHeight, maxWidth.value, maxHeight.value)
+  const chosenFmt = targetFormat.value === 'auto' ? it.file.type : targetFormat.value
+  const supportedCanvasFmt = /^(image\/(jpeg|png|webp))$/i
+  const mime = supportedCanvasFmt.test(chosenFmt) ? chosenFmt : 'image/jpeg'
+  const fmtLabelMap: Record<string, string> = { 'image/jpeg': 'JPEG', 'image/png': 'PNG', 'image/webp': 'WEBP' }
+  const canvas = document.createElement('canvas')
+  canvas.width = dims.w
+  canvas.height = dims.h
+  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
+  ctx.drawImage(img, 0, 0, dims.w, dims.h)
+  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(b => resolve(b), mime, quality.value))
+  let estSize = 0
+  if (blob) estSize = blob.size
+  const origSize = it.file.size
+  const rate = origSize ? (100 - (estSize / origSize) * 100) : 0
+  detailStats.value = {
+    name: it.name,
+    width: img.naturalWidth,
+    height: img.naturalHeight,
+    size: origSize,
+    targetW: dims.w,
+    targetH: dims.h,
+    estSize,
+    estRate: `${rate.toFixed(1)}%`,
+    fmtLabel: targetFormat.value === 'auto' ? '自动' : (fmtLabelMap[mime] || '自动')
+  }
+}
+
 
 const handleBeforeUpload = async (file: File) => {
   await setOriginalFile(file)
@@ -167,7 +243,107 @@ const handleBeforeUpload = async (file: File) => {
 }
 
 const handleUploadChange = async (file: UploadFile) => {
-  if (file && file.raw) await setOriginalFile(file.raw as File)
+  if (file && file.raw) {
+    addImageFileIfSupported(file.raw as File)
+    if (!originalFile.value) await setOriginalFile(file.raw as File)
+  }
+}
+
+const addImageFileIfSupported = (file: File) => {
+  if (!/^image\/(jpeg|png|webp|gif)$/i.test(file.type)) {
+    imageErrors.value.push({ name: file.name, reason: '不支持的图片格式' })
+    return
+  }
+  const key = `${file.name}:${file.size}:${file.lastModified}`
+  if (imageFileKeys.value.has(key)) return
+  imageFileKeys.value.add(key)
+  const url = URL.createObjectURL(file)
+  imageFiles.value.push({ file, name: file.name, url })
+}
+
+const startCompressAll = async () => {
+  if (imageFiles.value.length === 0) return
+  imageRunning.value = true
+  imageDone.value = 0
+  imageFailed.value = 0
+  imageResults.value = []
+  imageErrors.value = []
+  for (const it of imageFiles.value) {
+    try {
+      const fmt = targetFormat.value === 'auto' ? it.file.type : targetFormat.value
+      const res = await compressFile(it.file, fmt)
+      imageResults.value.push({ name: deriveFileName(it.name, fmt), blob: res.blob })
+      imageDone.value += 1
+    } catch (e: any) {
+      imageFailed.value += 1
+      imageErrors.value.push({ name: it.name, reason: '压缩失败' })
+    }
+  }
+  imageRunning.value = false
+}
+
+const downloadAllImages = () => {
+  for (const r of imageResults.value) {
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(r.blob)
+    a.download = r.name
+    a.click()
+  }
+}
+
+const saveImagesDefaultBatch = async () => {
+  if (!outputDirHandle.value) {
+    downloadAllImages()
+    return
+  }
+  for (const r of imageResults.value) {
+    try {
+      const fh = await outputDirHandle.value.getFileHandle(r.name, { create: true })
+      const ws = await fh.createWritable()
+      await ws.write(r.blob)
+      await ws.close()
+    } catch (e) {
+      imageErrors.value.push({ name: r.name, reason: '写入失败' })
+    }
+  }
+}
+
+const deriveFileName = (orig: string, mime: string) => {
+  const extMap: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
+  const base = orig.replace(/\.[^.]+$/, '')
+  const ext = extMap[mime] || 'jpg'
+  return `${base}-compressed.${ext}`
+}
+
+const removeImageAt = (index: number) => {
+  const it = imageFiles.value[index]
+  if (!it) return
+  try {
+    URL.revokeObjectURL(it.url)
+  } catch {}
+  const key = `${it.name}:${it.file.size}:${it.file.lastModified}`
+  imageFileKeys.value.delete(key)
+  imageFiles.value.splice(index, 1)
+  if (imageFiles.value.length === 0) {
+    imageResults.value = []
+    imageErrors.value = []
+    imageDone.value = 0
+    imageFailed.value = 0
+    imageRunning.value = false
+  }
+}
+
+const clearAllImages = () => {
+  for (const it of imageFiles.value) {
+    try { URL.revokeObjectURL(it.url) } catch {}
+  }
+  imageFiles.value = []
+  imageFileKeys.value = new Set()
+  imageResults.value = []
+  imageErrors.value = []
+  imageDone.value = 0
+  imageFailed.value = 0
+  imageRunning.value = false
 }
 
 const setOriginalFile = async (file: File) => {
@@ -198,27 +374,7 @@ const setOriginalFile = async (file: File) => {
   compressedSize.value = 0
 }
 
-const startCompress = async () => {
-  if (!originalFile.value) return
-  loading.value = true
-  progress.value = 0
-  compressedBlob.value = null
-  compressedUrl.value = ''
-  try {
-    const fmt = targetFormat.value === 'auto' ? originalFile.value.type : targetFormat.value
-    const workerSupported = typeof Worker !== 'undefined'
-    if (workerSupported) {
-      await compressWithWorker(originalFile.value, fmt)
-    } else {
-      await compressInMain(originalFile.value, fmt)
-    }
-  } catch (e: any) {
-    error.value = '压缩失败'
-  } finally {
-    loading.value = false
-    progress.value = 100
-  }
-}
+
 
 
 
@@ -233,57 +389,56 @@ const pickOutputDirectory = async () => {
 
 
 
-const compressWithWorker = async (file: File, mime: string) => {
-  return new Promise<void>((resolve, reject) => {
-    const worker = new Worker(new URL('@/workers/imageCompressWorker.ts', import.meta.url), { type: 'module' })
-    const reader = new FileReader()
-    reader.onload = () => {
-      const buffer = reader.result as ArrayBuffer
-      worker.postMessage({ type: 'compress', payload: { buffer, mime, quality: quality.value, maxWidth: maxWidth.value, maxHeight: maxHeight.value } }, [buffer])
-    }
-    reader.onerror = () => reject(new Error('读取文件失败'))
-    reader.readAsArrayBuffer(file)
-    worker.onmessage = e => {
-      const msg = e.data
-      if (msg.type === 'progress') {
-        progress.value = Math.min(99, Math.max(0, Math.round(msg.value)))
-      } else if (msg.type === 'done') {
-        const buf: ArrayBuffer = msg.payload.buffer
-        const blob = new Blob([buf], { type: mime })
-        compressedBlob.value = blob
-        compressedUrl.value = URL.createObjectURL(blob)
-        compressedSize.value = msg.payload.newSize
-        compressedWidth.value = msg.payload.width
-        compressedHeight.value = msg.payload.height
-        resolve()
-        worker.terminate()
-      } else if (msg.type === 'error') {
-        reject(new Error(msg.error || '压缩失败'))
-        worker.terminate()
-      }
-    }
-    worker.onerror = () => {
-      worker.terminate()
-      reject(new Error('Worker错误'))
-    }
-  })
-}
 
-const compressInMain = async (file: File, mime: string) => {
-  const img = await readImage(file)
-  const dims = getTargetDims(img.naturalWidth, img.naturalHeight, maxWidth.value, maxHeight.value)
-  const canvas = document.createElement('canvas')
-  canvas.width = dims.w
-  canvas.height = dims.h
-  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
-  ctx.drawImage(img, 0, 0, dims.w, dims.h)
-  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(b => resolve(b), mime, quality.value))
-  if (!blob) throw new Error('生成图片失败')
-  compressedBlob.value = blob
-  compressedUrl.value = URL.createObjectURL(blob)
-  compressedSize.value = blob.size
-  compressedWidth.value = dims.w
-  compressedHeight.value = dims.h
+
+
+
+const compressFile = async (file: File, mime: string) => {
+  try {
+    const workerSupported = typeof Worker !== 'undefined'
+    if (workerSupported) {
+      const res = await new Promise<{ blob: Blob; width: number; height: number; size: number }>((resolve, reject) => {
+        const worker = new Worker(new URL('@/workers/imageCompressWorker.ts', import.meta.url), { type: 'module' })
+        const reader = new FileReader()
+        reader.onload = () => {
+          const buffer = reader.result as ArrayBuffer
+          worker.postMessage({ type: 'compress', payload: { buffer, mime, quality: quality.value, maxWidth: maxWidth.value, maxHeight: maxHeight.value } }, [buffer])
+        }
+        reader.onerror = () => reject(new Error('读取文件失败'))
+        reader.readAsArrayBuffer(file)
+        worker.onmessage = e => {
+          const msg = e.data
+          if (msg.type === 'done') {
+            const buf: ArrayBuffer = msg.payload.buffer
+            const blob = new Blob([buf], { type: mime })
+            resolve({ blob, width: msg.payload.width, height: msg.payload.height, size: msg.payload.newSize })
+            worker.terminate()
+          } else if (msg.type === 'error') {
+            reject(new Error(msg.error || '压缩失败'))
+            worker.terminate()
+          }
+        }
+        worker.onerror = () => {
+          worker.terminate()
+          reject(new Error('Worker错误'))
+        }
+      })
+      return res
+    } else {
+      const img = await readImage(file)
+      const dims = getTargetDims(img.naturalWidth, img.naturalHeight, maxWidth.value, maxHeight.value)
+      const canvas = document.createElement('canvas')
+      canvas.width = dims.w
+      canvas.height = dims.h
+      const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
+      ctx.drawImage(img, 0, 0, dims.w, dims.h)
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(b => resolve(b), mime, quality.value))
+      if (!blob) throw new Error('生成图片失败')
+      return { blob, width: dims.w, height: dims.h, size: blob.size }
+    }
+  } catch (err: any) {
+    throw err
+  }
 }
 
 const readImage = (file: File) => {
@@ -327,36 +482,9 @@ watch([() => originalFile.value, () => targetFormat.value], () => {
   filename.value = `${base}-compressed.${ext}`
 })
 
-const download = () => {
-  if (!compressedBlob.value) return
-  const a = document.createElement('a')
-  a.href = compressedUrl.value
-  a.download = filename.value
-  a.click()
-}
 
-const saveImageDefault = async () => {
-  if (!compressedBlob.value || !originalFile.value) return
-  const origName = originalFile.value.name
-  const base = origName.replace(/\.[^.]+$/, '')
-  const ext = origName.split('.').pop() || 'jpg'
-  const newName = `${base}${outputSuffix.value}.${ext}`
-  if (outputDirHandle.value) {
-    try {
-      const fh = await outputDirHandle.value.getFileHandle(newName, { create: true })
-      const ws = await fh.createWritable()
-      await ws.write(compressedBlob.value)
-      await ws.close()
-      return
-    } catch (e) {
-      // fallback to download
-    }
-  }
-  const a = document.createElement('a')
-  a.href = compressedUrl.value
-  a.download = newName
-  a.click()
-}
+
+
 
 // Folder zip states
 const zip = ref<JSZip | null>(null)
@@ -562,6 +690,21 @@ const compressImageForZip = async (file: File) => {
 .compress-tabs {
   margin-top: 8px;
 }
+.compress :deep(.el-tabs--card .el-tabs__header) {
+  border-color: var(--el-color-primary);
+}
+.compress :deep(.el-tabs--card .el-tabs__item) {
+  color: var(--el-color-primary);
+  border-color: var(--el-color-primary);
+}
+.compress :deep(.el-tabs--card .el-tabs__item.is-active) {
+  background-color: var(--el-color-primary);
+  color: #fff;
+  border-color: var(--el-color-primary);
+}
+.compress :deep(.el-tabs--card .el-tabs__item:hover) {
+  color: var(--el-color-primary-dark-2);
+}
 .fade-enter-active, .fade-leave-active {
   transition: opacity 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -652,6 +795,95 @@ const compressImageForZip = async (file: File) => {
   display: flex;
   gap: 12px;
   margin-top: 24px;
+}
+.image-batch {
+  margin-top: 16px;
+  padding: 16px;
+}
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.image-card {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  padding: 8px;
+  position: relative;
+}
+.image-card img {
+  width: 100%;
+  border-radius: 6px;
+}
+.image-card .remove-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+.image-card .detail-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+}
+.compress :deep(.detail-dialog) {
+  border-radius: 12px;
+}
+.compress :deep(.detail-dialog .el-dialog__header) {
+  text-align: center;
+  font-weight: 600;
+  border-bottom: 1px solid var(--el-color-primary);
+}
+.detail-content {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+}
+.detail-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.detail-thumb {
+  width: 100%;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.6);
+}
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.1);
+}
+.detail-row span { color: $text-secondary; }
+.image-card .meta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: $text-secondary;
+}
+.compress :deep(.el-button) {
+  background-color: var(--el-color-primary);
+  border-color: var(--el-color-primary);
+  color: #fff;
+}
+.compress :deep(.el-button:hover),
+.compress :deep(.el-button:focus) {
+  background-color: var(--el-color-primary-light-3);
+  border-color: var(--el-color-primary-light-3);
+  color: #fff;
+}
+.compress :deep(.el-button:active) {
+  background-color: var(--el-color-primary-dark-2);
+  border-color: var(--el-color-primary-dark-2);
+  color: #fff;
+}
+.compress :deep(.el-button.is-disabled),
+.compress :deep(.el-button.is-disabled:hover),
+.compress :deep(.el-button.is-disabled:focus) {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .btn {
   min-height: 44px;
@@ -820,6 +1052,14 @@ input[type="number"]:focus, input[type="text"]:focus, select:focus {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
+}
+.compress :deep(.batch-stats .el-tag) {
+  background-color: var(--el-color-primary);
+  border-color: var(--el-color-primary);
+  color: #fff;
+}
+.compress :deep(.batch-stats .el-tag .el-tag__content) {
+  color: #fff;
 }
 .batch-actions {
   display: flex;
