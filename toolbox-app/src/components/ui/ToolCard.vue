@@ -25,6 +25,14 @@ const isFavorite = computed(() => toolsStore.favorites.includes(props.tool.id))
 
 const handleClick = () => {
   toolsStore.addToHistory(props.tool.id)
+  if (typeof props.tool.url === 'string' && props.tool.url.startsWith('/')) {
+    router.push(props.tool.url)
+    return
+  }
+  if (props.tool.id === 'img-compress') {
+    router.push('/image-compress')
+    return
+  }
   router.push({ name: 'ToolDetail', params: { id: props.tool.id } })
 }
 

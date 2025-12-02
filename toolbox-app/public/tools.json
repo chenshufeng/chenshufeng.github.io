@@ -4,7 +4,8 @@
     "name": "图片压缩",
     "description": "快速压缩图片体积，保持清晰度",
     "icon": "/vite.svg",
-    "popularity": 95
+    "popularity": 95,
+    "url": "/image-compress"
   },
   {
     "id": "text-format",
