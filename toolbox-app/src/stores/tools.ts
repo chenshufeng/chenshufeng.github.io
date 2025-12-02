@@ -11,6 +11,7 @@ export const useToolsStore = defineStore('tools', () => {
   const pageNum = ref(1)
   const pageSize = ref(12)
   const total = ref(0)
+  const searchQuery = ref('')
 
   const fetchTools = async () => {
     loading.value = true
@@ -69,6 +70,10 @@ export const useToolsStore = defineStore('tools', () => {
     return tools.value.filter(tool => history.value.includes(tool.id))
   })
 
+  const setSearchQuery = (q: string) => {
+    searchQuery.value = q
+  }
+
   return {
     tools,
     loading,
@@ -78,11 +83,13 @@ export const useToolsStore = defineStore('tools', () => {
     pageNum,
     pageSize,
     total,
+    searchQuery,
     fetchTools,
     fetchToolsPage,
     toggleFavorite,
     addToHistory,
     favoriteTools,
-    recentTools
+    recentTools,
+    setSearchQuery
   }
 })

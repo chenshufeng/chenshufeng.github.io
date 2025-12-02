@@ -3,7 +3,13 @@
     <Navbar />
     <section class="hero">
       <div class="container">
-        <h1>发现并使用强大的在线工具</h1>
+        <div class="brand-logo" aria-label="网站Logo">
+          <svg viewBox="0 0 24 24" width="64" height="64" role="img" aria-hidden="true">
+            <path fill="currentColor" d="M10 4h4a2 2 0 0 1 2 2v2h3a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a1 1 0 0 1 1-1h3V6a2 2 0 0 1 2-2zm4 4V6h-4v2h4z"/>
+          </svg>
+          <span class="brand-text">ToolBox</span>
+        </div>
+        <h1>你的高效数字工具箱</h1>
         <p>一站式解决您的日常工作需求</p>
       </div>
     </section>
@@ -11,10 +17,10 @@
       <div class="container">
         <div class="section-header">
           <h2>所有工具</h2>
-          <div class="filter-controls">
+<!--          <div class="filter-controls">
             <button class="btn" @click="sortBy('name')">按名称排序</button>
             <button class="btn" @click="sortBy('popularity')">按热度排序</button>
-          </div>
+          </div>-->
         </div>
         <div v-if="loading" class="skeleton-grid">
           <div class="skeleton-card" v-for="i in 6" :key="i"></div>
@@ -46,8 +52,7 @@ import Footer from '@/components/ui/Footer.vue'
 import ToolCard from '@/components/ui/ToolCard.vue'
 
 const toolsStore = useToolsStore()
-const { tools, loading, error, pageNum, pageSize, total } = storeToRefs(toolsStore)
-const searchQuery = ref('')
+const { tools, loading, error, pageNum, pageSize, total, searchQuery } = storeToRefs(toolsStore)
 const sortKey = ref<'name' | 'popularity'>('name')
 
 onMounted(() => {
@@ -69,9 +74,6 @@ const filteredTools = computed(() => {
     })
 })
 
-const sortBy = (key: 'name' | 'popularity') => {
-  sortKey.value = key
-}
 
 const pageCount = computed(() => {
   const t = Number(total.value || 0)
@@ -97,6 +99,24 @@ const goNext = () => {
   background-color: $bg-secondary;
   padding: 64px 0;
   text-align: center;
+}
+.brand-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: $border-radius;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: $shadow;
+  margin: 0 auto 16px;
+  color: $primary-color;
+}
+.brand-logo svg {
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.08));
+}
+.brand-text {
+  font-size: 20px;
+  font-weight: 700;
 }
 .hero h1 {
   font-size: 48px;

@@ -2,31 +2,37 @@
   <nav class="navbar">
     <div class="container">
       <div class="navbar-brand">
-        <router-link to="/" class="logo">
-          <span>ToolBox</span>
+        <router-link to="/" class="logo" aria-label="网站Logo">
+          <svg viewBox="0 0 24 24" width="28" height="28" role="img" aria-hidden="true">
+            <path fill="currentColor" d="M10 4h4a2 2 0 0 1 2 2v2h3a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a1 1 0 0 1 1-1h3V6a2 2 0 0 1 2-2zm4 4V6h-4v2h4z"/>
+          </svg>
+          <span class="brand-text">ToolBox</span>
         </router-link>
       </div>
       <div class="search-bar">
-        <input type="text" placeholder="搜索工具..." v-model="searchQuery" />
+        <input type="text" placeholder="搜索工具..." v-model="queryRef" />
       </div>
-      <div class="navbar-actions">
+<!--      <div class="navbar-actions">
         <button class="btn" @click="toggleTheme">
           <span class="icon">☀️</span>
         </button>
         <button class="btn" @click="goToUserCenter">
           <span class="icon">👤</span>
         </button>
-      </div>
+      </div>-->
     </div>
   </nav>
   </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed } from 'vue'
+import { useToolsStore } from '@/stores/tools'
 
-const searchQuery = ref('')
-const toggleTheme = () => {}
-const goToUserCenter = () => {}
+const toolsStore = useToolsStore()
+const queryRef = computed({
+  get: () => toolsStore.searchQuery,
+  set: (val: string) => toolsStore.setSearchQuery(val)
+})
 </script>
 
 <style scoped lang="scss">
@@ -48,11 +54,16 @@ const goToUserCenter = () => {}
     padding: 0 20px;
   }
   .navbar-brand .logo {
-    font-size: 24px;
-    font-weight: 600;
-    color: $text-primary;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 700;
+    color: $primary-color;
     text-decoration: none;
   }
+  .navbar-brand .logo svg { filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.08)); }
+  .navbar-brand .logo:hover { color: $primary-hover; }
   .search-bar {
     flex: 1;
     max-width: 400px;
