@@ -24,7 +24,7 @@
       </section>
       </transition>
 
-      
+
       <div v-if="activeTab === 'image' && originalUrl && imageFiles.length === 0" class="preview">
         <div class="preview-item">
           <h3>原始</h3>
@@ -44,8 +44,8 @@
           </div>
         </div>
       </div>
-      
-      
+
+
       <section v-if="activeTab === 'image' && imageFiles.length > 0" class="surface image-batch" aria-label="多图压缩">
         <div class="batch-header">
           <div class="header-title">
@@ -113,7 +113,7 @@
                 <p class="section-sub">选择或拖拽文件夹，保持原有目录结构打包</p>
               </div>
             </div>
-            
+
           </div>
           <div class="batch-controls">
             <el-button @click="pickZipDirectory">选择文件夹</el-button>
@@ -148,6 +148,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import JSZip from 'jszip'
+import UPNG from 'upng-js'
 import type { UploadFile } from 'element-plus'
 const activeTab = ref<'image' | 'folder'>('image')
 const originalFile = ref<File | null>(null)
@@ -698,6 +699,82 @@ const saveZipToOutput = async () => {
 
 const compressImageForZip = async (file: File) => {
   const mime = file.type
+
+  // 对于PNG格式图片，使用UPNG.js进行压缩
+  if (mime === 'image/png') {
+    try {
+      // 读取文件为ArrayBuffer
+      const buffer = await file.arrayBuffer()
+
+      // 解码PNG
+      const img = UPNG.decode(buffer)
+
+      // 获取原始尺寸
+      const origWidth = img.width
+      const origHeight = img.height
+      const dims = getTargetDims(origWidth, origHeight, null, null)
+
+      // 如果需要调整尺寸
+      let rgbaData: ArrayBuffer
+      if (dims.w !== origWidth || dims.h !== origHeight) {
+        // 转换为RGBA8格式
+        const rgba8Array = UPNG.toRGBA8(img)
+        const rgba = rgba8Array?.[0] as ArrayBuffer
+        if (!rgba) {
+          throw new Error('Failed to convert PNG to RGBA8 format')
+        }
+
+        // 创建临时File用于调整尺寸（转换为File类型以匹配readImage函数参数）
+        const imgFile = new File([rgba], 'temp.png', { type: 'image/png' })
+        const imgElement = await readImage(imgFile)
+
+        // 使用Canvas调整尺寸
+        const canvas = document.createElement('canvas')
+        canvas.width = dims.w
+        canvas.height = dims.h
+        const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
+        ctx.drawImage(imgElement, 0, 0, dims.w, dims.h)
+
+        // 获取调整后的像素数据
+        const imageData = ctx.getImageData(0, 0, dims.w, dims.h)
+        rgbaData = imageData.data.buffer
+      } else {
+        // 直接使用原始数据
+        const rgba8Array = UPNG.toRGBA8(img)
+        rgbaData = rgba8Array?.[0] as ArrayBuffer
+        if (!rgbaData) {
+          throw new Error('Failed to get RGBA8 data from PNG')
+        }
+      }
+
+      // 根据quality决定压缩方式
+      const quality = zipImageQuality.value
+      const colorNum = quality >= 1.0 ? 0 : Math.max(2, Math.floor(256 * quality))
+
+      // 使用UPNG编码
+      const encoded = UPNG.encode([rgbaData], dims.w, dims.h, colorNum)
+      const compressedBlob = new Blob([encoded], { type: 'image/png' })
+
+      // 如果压缩后更大，返回原图
+      if (compressedBlob.size >= file.size) {
+        return file
+      }
+
+      return compressedBlob
+    } catch (error) {
+      console.warn('UPNG.js compression failed for ZIP, falling back to canvas method:', error)
+      // 压缩失败，回退到传统方法
+      return await fallbackCompressImageForZip(file)
+    }
+  } else {
+    // 非PNG格式使用传统压缩方法
+    return await fallbackCompressImageForZip(file)
+  }
+}
+
+// 传统压缩方法作为回退
+const fallbackCompressImageForZip = async (file: File) => {
+  const mime = file.type
   const img = await readImage(file)
   const dims = getTargetDims(img.naturalWidth, img.naturalHeight, null, null)
   const canvas = document.createElement('canvas')
@@ -742,7 +819,7 @@ const compressImageForZip = async (file: File) => {
   border-color: var(--el-color-primary);
 }
 .compress :deep(.el-tabs--card .el-tabs__item:hover) {
-  color: var(--el-color-primary-dark-2);
+  //color: var(--el-color-primary-dark-2);
 }
 .fade-enter-active, .fade-leave-active {
   transition: opacity 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
