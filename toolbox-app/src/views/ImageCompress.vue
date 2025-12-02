@@ -56,6 +56,14 @@
             </div>
           </div>
           <div class="header-actions">
+            <label class="concurrency-label">缩放</label>
+            <el-select v-model="scaleEdge" size="small" class="concurrency-select" placeholder="原尺寸">
+              <el-option :value="null" label="原尺寸" />
+              <el-option :value="1920" label="1920" />
+              <el-option :value="1280" label="1280" />
+              <el-option :value="1024" label="1024" />
+              <el-option :value="800" label="800" />
+            </el-select>
             <el-button type="primary" :disabled="imageRunning || imageFiles.length === 0" @click="startCompressAll">压缩全部</el-button>
             <el-button :disabled="imageRunning || imageResults.length === 0" @click="downloadAllImages">批量下载</el-button>
             <el-button type="success" :disabled="imageRunning || imageResults.length === 0" @click="saveImagesDefaultBatch">保存到输出文件夹</el-button>
@@ -163,6 +171,7 @@ const compressedHeight = ref<number>(0)
 const quality = ref<number>(0.8)
 const maxWidth = ref<number | null>(null)
 const maxHeight = ref<number | null>(null)
+const scaleEdge = ref<number | null>(null)
 const targetFormat = ref<string>('auto')
 const filename = ref<string>('compressed')
 const outputSuffix = ref<string>('_output')
@@ -707,6 +716,9 @@ const compressImageForZip = async (file: File) => {
   ctx.drawImage(img, 0, 0, dims.w, dims.h)
   const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(b => resolve(b), mime, mime === 'image/png' ? undefined : zipImageQuality.value))
   if (!blob) throw new Error('生成图片失败')
+  if (blob.size >= file.size) {
+    return file
+  }
   return blob
 }
 </script>
@@ -1110,3 +1122,7 @@ input[type="number"]:focus, input[type="text"]:focus, select:focus {
   font-size: 12px;
 }
 </style>
+watch(() => scaleEdge.value, (val) => {
+  maxWidth.value = val
+  maxHeight.value = val
+})
