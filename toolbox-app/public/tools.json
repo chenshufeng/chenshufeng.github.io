@@ -6,5 +6,13 @@
     "icon": "/vite.svg",
     "popularity": 95,
     "url": "/image-compress"
+  },
+  {
+    "id": "file-converter",
+    "name": "PDF与Word转换",
+    "description": "PDF与Word文件互相转换，支持doc、docx、pdf格式",
+    "icon": "/vite.svg",
+    "popularity": 90,
+    "url": "/file-converter"
   }
 ]
