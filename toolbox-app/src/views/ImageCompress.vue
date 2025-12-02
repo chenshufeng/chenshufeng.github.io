@@ -1,17 +1,27 @@
 <template>
   <main class="compress">
     <div class="container">
-      <h1>图片压缩</h1>
-      <div class="upload-area" @dragover.prevent @drop.prevent="onDrop">
-        <input ref="fileInput" type="file" accept="image/*" @change="onFileChange" />
-        <button class="btn" @click="chooseFile">选择图片</button>
-        <p class="hint">拖拽图片到此或点击选择</p>
-        <p v-if="error" class="error">{{ error }}</p>
-      </div>
+      <h1 class="title">图片压缩</h1>
+      <section class="surface upload-area" aria-label="上传图片区域">
+        <el-upload
+          class="el-upload-apple"
+          :show-file-list="false"
+          drag
+          accept="image/*"
+          :auto-upload="false"
+          :limit="1"
+          :before-upload="handleBeforeUpload"
+          @change="handleUploadChange"
+        >
+          <el-icon><svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18h14v2H5z"/></svg></el-icon>
+          <div class="el-upload__text">拖拽图片到此或点击选择</div>
+        </el-upload>
+        <p v-if="error" class="error" role="alert">{{ error }}</p>
+      </section>
       <div v-if="originalUrl" class="preview">
         <div class="preview-item">
           <h3>原始</h3>
-          <img :src="originalUrl" alt="original" />
+          <img :src="originalUrl" alt="原始图片" />
           <div class="meta">
             <span>尺寸：{{ originalWidth }}×{{ originalHeight }}</span>
             <span>大小：{{ formatBytes(originalSize) }}</span>
@@ -19,7 +29,7 @@
         </div>
         <div class="preview-item" v-if="compressedUrl">
           <h3>压缩后</h3>
-          <img :src="compressedUrl" alt="compressed" />
+          <img :src="compressedUrl" alt="压缩后图片" />
           <div class="meta">
             <span>尺寸：{{ compressedWidth }}×{{ compressedHeight }}</span>
             <span>大小：{{ formatBytes(compressedSize) }}</span>
@@ -27,7 +37,7 @@
           </div>
         </div>
       </div>
-      <div class="controls" v-if="originalUrl">
+      <section class="surface controls" v-if="originalUrl" aria-label="压缩参数设置">
         <div class="control">
           <label>质量</label>
           <input type="range" min="0.6" max="0.9" step="0.01" v-model.number="quality" />
@@ -54,14 +64,14 @@
           <label>文件名</label>
           <input type="text" v-model="filename" placeholder="下载文件名" />
         </div>
-      </div>
+      </section>
       <div class="actions" v-if="originalUrl">
-        <button class="btn primary" :disabled="loading" @click="startCompress">开始压缩</button>
-        <button class="btn" :disabled="!compressedBlob" @click="download">下载</button>
+        <button class="btn primary large" :disabled="loading" @click="startCompress" aria-label="开始压缩">开始压缩</button>
+        <button class="btn large" :disabled="!compressedBlob" @click="download" aria-label="下载压缩图片">下载</button>
       </div>
-      <div class="progress" v-if="loading">
+      <div class="progress" v-if="loading" role="progressbar" aria-valuemin="0" :aria-valuenow="progress" aria-valuemax="100">
         <div class="bar" :style="{ width: progress + '%' }"></div>
-        <span>{{ progress }}%</span>
+        <span class="progress-text">{{ progress }}%</span>
       </div>
     </div>
   </main>
@@ -69,8 +79,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-
-const fileInput = ref<HTMLInputElement | null>(null)
+import type { UploadFile } from 'element-plus'
 const originalFile = ref<File | null>(null)
 const originalUrl = ref<string>('')
 const originalSize = ref<number>(0)
@@ -90,17 +99,13 @@ const loading = ref(false)
 const progress = ref(0)
 const error = ref<string | null>(null)
 
-const chooseFile = () => fileInput.value?.click()
-
-const onFileChange = async (e: Event) => {
-  const input = e.target as HTMLInputElement
-  const file = input.files && input.files[0]
-  if (file) await setOriginalFile(file)
+const handleBeforeUpload = async (file: File) => {
+  await setOriginalFile(file)
+  return false
 }
 
-const onDrop = async (e: DragEvent) => {
-  const file = e.dataTransfer?.files?.[0]
-  if (file) await setOriginalFile(file)
+const handleUploadChange = async (file: UploadFile) => {
+  if (file && file.raw) await setOriginalFile(file.raw as File)
 }
 
 const setOriginalFile = async (file: File) => {
@@ -257,22 +262,58 @@ const download = () => {
 </script>
 
 <style scoped lang="scss">
+/* Apple Design Language-inspired styles */
 .compress {
   padding: 48px 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+.title {
+  font-weight: 700;
+  font-size: 32px;
+  margin: 0 0 24px;
+  letter-spacing: -0.02em;
+}
+.surface {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .upload-area {
-  background-color: $bg-secondary;
   padding: 24px;
-  border-radius: $border-radius;
+  display: block;
+}
+.upload-area:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+}
+.el-upload-apple .el-upload {
+  width: 100%;
+}
+.el-upload-apple .el-upload-dragger {
+  min-height: 240px;
+  width: 100%;
+  border-radius: 8px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
+}
+.el-upload-apple svg {
+  width: 40px;
+  height: 40px;
+}
+.el-upload-apple .el-upload__text {
+  font-size: 16px;
 }
 .upload-area .hint {
   color: $text-secondary;
 }
 .error {
-  color: red;
+  color: #ff3b30;
 }
 .preview {
   display: grid;
@@ -280,15 +321,28 @@ const download = () => {
   gap: 24px;
   margin-top: 24px;
 }
+.preview-item {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 16px;
+}
 .preview-item img {
   width: 100%;
-  border-radius: $border-radius;
-  background-color: $bg-secondary;
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.5);
+  transition: opacity 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.preview-item img:hover {
+  transform: scale(1.01);
 }
 .preview-item .meta {
   display: flex;
   gap: 12px;
   color: $text-secondary;
+  margin-top: 8px;
 }
 .controls {
   display: grid;
@@ -306,12 +360,56 @@ const download = () => {
   gap: 12px;
   margin-top: 24px;
 }
+.btn {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.7);
+  color: $text-primary;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.2s ease;
+}
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+.btn:active {
+  transform: translateY(0);
+}
+.btn.primary {
+  background: $primary-color;
+  color: #fff;
+  border: none;
+}
+.btn.large {
+  padding: 12px 18px;
+}
+input[type="range"] {
+  accent-color: $primary-color;
+}
+input[type="number"], input[type="text"], select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+input[type="number"]:focus, input[type="text"]:focus, select:focus {
+  outline: none;
+  border-color: $primary-color;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.2);
+}
 .progress {
   height: 8px;
-  background-color: $bg-secondary;
+  background: rgba(255, 255, 255, 0.6);
   border-radius: 999px;
   position: relative;
   margin-top: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 .progress .bar {
   position: absolute;
@@ -320,5 +418,25 @@ const download = () => {
   bottom: 0;
   background-color: $primary-color;
   border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.progress .progress-text {
+  display: inline-block;
+  margin-top: 8px;
+  color: $text-secondary;
+}
+
+@media (prefers-color-scheme: dark) {
+  .surface, .preview-item, .btn {
+    background: rgba(30, 30, 32, 0.6);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: #fff;
+  }
+  input[type="number"], input[type="text"], select {
+    background: rgba(30, 30, 32, 0.6);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #fff;
+  }
 }
 </style>
+ 
